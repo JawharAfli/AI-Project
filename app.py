@@ -1,34 +1,31 @@
 import numpy as np
-from random import random, randint
-import random
 import matplotlib.pyplot as plt
 import time
-
+from random import random, randint
+import random
+from kivy.clock import Clock
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.widget import Widget
-from kivy.uix.button import Button
-from kivy.graphics import Color, Ellipse, Line
 from kivy.config import Config
 from kivy.properties  import NumericProperty, ReferenceListProperty, ObjectProperty
 from kivy.vector import Vector
-from kivy.clock import Clock
-
+from kivy.uix.button import Button
+from kivy.graphics import Color, Ellipse, Line
 from dqn import Dqn
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
-
 
 last_x = 0
 last_y = 0
 n_points = 0
 length = 0
 brain = Dqn(5,3,0.9)
-action2rotation = [0,20,-20]
+a_rotation = [0,20,-20]
 last_reward = 0
 scores = []
-
 first_update = True
+
 def init():
     global sand
     global goal_x
@@ -40,42 +37,51 @@ def init():
     first_update = False
 
 
-last_distance = 0
+
 class Car(Widget):
     angle = NumericProperty(0)
     rotation = NumericProperty(0)
-    velocity_x = NumericProperty(0)
-    velocity_y = NumericProperty(0)
-    velocity = ReferenceListProperty(velocity_x, velocity_y)
+
     sensor1_x = NumericProperty(0)
     sensor1_y = NumericProperty(0)
     sensor1 = ReferenceListProperty(sensor1_x, sensor1_y)
+
     sensor2_x = NumericProperty(0)
     sensor2_y = NumericProperty(0)
     sensor2 = ReferenceListProperty(sensor2_x, sensor2_y)
+
     sensor3_x = NumericProperty(0)
     sensor3_y = NumericProperty(0)
     sensor3 = ReferenceListProperty(sensor3_x, sensor3_y)
+
+    velocity_x = NumericProperty(0)
+    velocity_y = NumericProperty(0)
+    velocity = ReferenceListProperty(velocity_x, velocity_y)
+
     signal1 = NumericProperty(0)
     signal2 = NumericProperty(0)
     signal3 = NumericProperty(0)
 
     def move(self, rotation):
-        self.pos = Vector(*self.velocity) + self.pos
-        self.rotation = rotation
-        self.angle = self.angle + self.rotation
+
         self.sensor1 = Vector(30, 0).rotate(self.angle) + self.pos
         self.sensor2 = Vector(30, 0).rotate((self.angle+30)%360) + self.pos
         self.sensor3 = Vector(30, 0).rotate((self.angle-30)%360) + self.pos
+
         self.signal1 = int(np.sum(sand[int(self.sensor1_x)-10:int(self.sensor1_x)+10, int(self.sensor1_y)-10:int(self.sensor1_y)+10]))/400.
         self.signal2 = int(np.sum(sand[int(self.sensor2_x)-10:int(self.sensor2_x)+10, int(self.sensor2_y)-10:int(self.sensor2_y)+10]))/400.
         self.signal3 = int(np.sum(sand[int(self.sensor3_x)-10:int(self.sensor3_x)+10, int(self.sensor3_y)-10:int(self.sensor3_y)+10]))/400.
+        
+        self.pos = Vector(*self.velocity) + self.pos
+        self.rotation = rotation
+        self.angle = self.angle + self.rotation
+        
         if self.sensor1_x>longueur-10 or self.sensor1_x<10 or self.sensor1_y>largeur-10 or self.sensor1_y<10:
-            self.signal1 = 1.
+            self.signal1 = 2.
         if self.sensor2_x>longueur-10 or self.sensor2_x<10 or self.sensor2_y>largeur-10 or self.sensor2_y<10:
-            self.signal2 = 1.
+            self.signal2 = 2.
         if self.sensor3_x>longueur-10 or self.sensor3_x<10 or self.sensor3_y>largeur-10 or self.sensor3_y<10:
-            self.signal3 = 1.
+            self.signal3 = 2.
 
 class Ball1(Widget):
     pass
@@ -85,6 +91,8 @@ class Ball3(Widget):
     pass
 
 
+
+last_distance = 0
 class Game(Widget):
 
     car = Car()
@@ -98,14 +106,15 @@ class Game(Widget):
 
     def update(self, dt):
 
-        global brain
-        global last_reward
-        global scores
-        global last_distance
         global goal_x
         global goal_y
         global longueur
         global largeur
+        global brain
+        global last_reward
+        global scores
+        global last_distance
+       
 
         longueur = self.width
         largeur = self.height
@@ -120,7 +129,7 @@ class Game(Widget):
         last_signal = [self.car.signal1, self.car.signal2, self.car.signal3, orientation, -orientation]
         action = brain.update(last_reward, last_signal)
         scores.append(brain.score())
-        rotation = action2rotation[action]
+        rotation = a_rotation[action]
         self.car.move(rotation)
         distance = np.sqrt((self.car.x - goal_x)**2 + (self.car.y - goal_y)**2)
         self.ball1.pos = self.car.sensor1
@@ -130,25 +139,25 @@ class Game(Widget):
         
         if sand[int(self.car.x),int(self.car.y)] > 0:
             self.car.velocity = Vector(1, 0).rotate(self.car.angle)
-            last_reward = -5
+            last_reward = -8
         else: 
             self.car.velocity = Vector(6, 0).rotate(self.car.angle)
-            last_reward = -0.1 
+            last_reward = -0.3
             if distance < last_distance:
-                last_reward = 0.1 
+                last_reward = 0.3
 
         if self.car.x < 10:
             self.car.x = 10
-            last_reward = -1
+            last_reward = -1.5
         if self.car.x > self.width - 10:
             self.car.x = self.width - 10
-            last_reward = -1 
+            last_reward = -1.5
         if self.car.y < 10:
             self.car.y = 10
-            last_reward = -1
+            last_reward = -1.5
         if self.car.y > self.height - 10:
             self.car.y = self.height - 10
-            last_reward = -1
+            last_reward = -1.5
 
         if distance < 100:
             goal_x = self.width-goal_x
@@ -157,6 +166,9 @@ class Game(Widget):
             self.last_steps = self.steps 
             self.steps = 0
         last_distance = distance
+
+
+
 
 
 class MyPaintWidget(Widget):
@@ -186,23 +198,30 @@ class MyPaintWidget(Widget):
             last_x = x
             last_y = y
 
+
+
 class CarApp(App):
     def build(self):
-        parent = Game()
-        parent.serve_car()
-        Clock.schedule_interval(parent.update, 1.0/120.0)
+        game = Game()
+        game.serve_car()
+
+        Clock.schedule_interval(game.update, 1.0/120.0)
         self.painter = MyPaintWidget()
-        clearbtn = Button(text = 'clear')
-        savebtn = Button(text = 'save', pos = (parent.width, 0))
-        loadbtn = Button(text = 'load', pos = (2 * parent.width, 0))
-        clearbtn.bind(on_release = self.clear_canvas)
-        savebtn.bind(on_release = self.save)
-        loadbtn.bind(on_release = self.load)
-        parent.add_widget(self.painter)
-        parent.add_widget(clearbtn)
-        parent.add_widget(savebtn)
-        parent.add_widget(loadbtn)
-        return parent
+
+        save_btn = Button(text = 'save', pos = (game.width, 0))
+        clear_btn = Button(text = 'clear')
+        load_btn = Button(text = 'load', pos = (2 * game.width, 0))
+
+        save_btn.bind(on_release = self.save)
+        clear_btn.bind(on_release = self.clear_canvas)
+        load_btn.bind(on_release = self.load)
+
+        game.add_widget(self.painter)
+
+        game.add_widget(clear_btn)
+        game.add_widget(save_btn)
+        game.add_widget(load_btn)
+        return game
 
     def clear_canvas(self, obj):
         global sand
